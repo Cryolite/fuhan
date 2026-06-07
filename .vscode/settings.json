@@ -1,0 +1,23 @@
+{
+    "editor.tabSize": 2,
+    "files.associations": {
+        "array": "cpp",
+        "vector": "cpp",
+        "ostream": "cpp"
+    },
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.includePath": [
+        "/usr/include/python3.14",
+        "/home/vscode/.local/include",
+        "/workspaces/fuhan"
+    ],
+    "cmake.environment": {
+        "LD_LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib"
+    },
+    "cmake.configureArgs": [
+        "-DFUHAN_BUILD_TESTING=ON"
+    ],
+    "cmake.configureEnvironment": {
+        "VIRTUAL_ENV": "/workspaces/fuhan/.venv"
+    }
+}

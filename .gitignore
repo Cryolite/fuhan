@@ -1,0 +1,6 @@
+/.venv/
+/build/
+/test/majsoul-scoring-corpus/*.tsv
+/test/majsoul-scoring-corpus/*.tsv.gz
+/test/majsoul-scoring-corpus/*.tsv.bz2
+/test/majsoul-scoring-corpus/*.tsv.xz
