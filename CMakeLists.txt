@@ -3,7 +3,7 @@
 # This file is part of https://github.com/Cryolite/fuhan
 
 cmake_minimum_required(VERSION 3.25.0)
-project(FuHan)
+project(FuHan VERSION 0.1.0 LANGUAGES CXX)
 
 option(FUHAN_BUILD_TESTING "Build FuHan tests" OFF)
 
