@@ -452,7 +452,8 @@ void runTestCase(std::string const &line, TestCase const &test_case)
     test_case.ankan_list,
     test_case.winning_tile,
     test_case.num_dora,
-    test_case.context);
+    test_case.context,
+    FuHan::Rules::mahjong_soul);
 
   auto on_test_failure = [&]() {
     std::ostringstream test_case_id;

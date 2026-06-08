@@ -346,6 +346,341 @@ inline constexpr bool isChiihou(Context const context)
 }
 
 /**
+ * @brief A bit-flag enumeration selecting optional scoring rules (rule variations).
+ *
+ * Mahjong is played under many slightly different rule sets, and several
+ * scoring decisions differ from one rule set to another. `Rule` models three
+ * such decisions, each of which is a binary choice between two mutually
+ * exclusive alternatives:
+ * - whether open tanyao (kuitan, 喰いタン) is awarded for an open hand;
+ * - whether double yakuman (ダブル役満) are recognised;
+ * - whether a double-wind pair (連風牌) is worth 2 fu or 4 fu.
+ *
+ * Each alternative of every option is represented by its **own** dedicated
+ * bit, so each of the three options corresponds to a distinct pair of flags.
+ * A complete rule configuration is assembled by combining exactly one flag
+ * from each of the three pairs with the bitwise `|` operator (see
+ * `operator|(Rule, Rule)`), for example `kuitan_enabled |
+ * double_yakuman_disabled | double_wind_pair_4fu`.
+ *
+ * There is deliberately **no implicit default**. The all-zero value
+ * (`Rule{}`) selects no alternative for any option, and a value in which
+ * both flags of a pair are set is equally ill-formed. A well-formed rule
+ * configuration sets exactly one flag from each of the three pairs. The score
+ * calculator enforces this invariant on its input (see `FuHan::checkInput_`):
+ * an under-specified configuration (a pair with neither flag set) or a
+ * contradictory one (a pair with both flags set) is rejected by throwing
+ * `std::invalid_argument`, so that no option ever silently falls back to an
+ * unstated default.
+ *
+ * Individual flags can be tested with the bitwise `&` operator or with the
+ * dedicated predicate functions (`isKuitanEnabled`, `isKuitanDisabled`,
+ * `isDoubleYakumanEnabled`, `isDoubleYakumanDisabled`, `isDoubleWindPair2Fu`,
+ * `isDoubleWindPair4Fu`).
+ *
+ * The fu awarded for a rinshan kaihou self-draw (嶺上自摸) is intentionally
+ * *not* configurable: such a win is always treated as an ordinary self-draw
+ * and receives the standard 2 fu tsumo bonus, in line with the rule sets of
+ * essentially all major organizations, leagues, and services.
+ *
+ * These flags are consumed by the score calculator to decide how certain
+ * yaku and fu are awarded for a winning hand.
+ */
+enum struct Rule
+  : std::uint_fast16_t
+{
+  kuitan_enabled_          = 1u << 0u, ///< Open tanyao (kuitan, 喰いタン) is awarded even for an open hand.
+  kuitan_disabled_         = 1u << 1u, ///< Open tanyao (kuitan, 喰いタン) is not awarded for an open hand.
+  double_yakuman_enabled_  = 1u << 2u, ///< Double yakuman (ダブル役満) are recognised.
+  double_yakuman_disabled_ = 1u << 3u, ///< Double yakuman (ダブル役満) are not recognised; every yakuman counts once.
+  double_wind_pair_2fu_    = 1u << 4u, ///< A double-wind pair (連風牌) is worth 2 fu.
+  double_wind_pair_4fu_    = 1u << 5u  ///< A double-wind pair (連風牌) is worth 4 fu.
+}; // enum struct Rule
+
+/**
+ * @brief A `Rule` flag awarding open tanyao (kuitan, 喰いタン) for an open hand.
+ *
+ * Selects the alternative in which Tanyao (all simples) is awarded even when
+ * the hand is open (i.e. it contains at least one chii, pon, or open kan).
+ * It is mutually exclusive with @ref kuitan_disabled; a well-formed `Rule`
+ * value sets exactly one of the two.
+ */
+inline constexpr Rule kuitan_enabled = Rule::kuitan_enabled_;
+
+/**
+ * @brief A `Rule` flag withholding open tanyao (kuitan, 喰いタン) for an open hand.
+ *
+ * Selects the alternative in which Tanyao (all simples) is awarded only for a
+ * completely concealed hand and never for an open hand. It is mutually
+ * exclusive with @ref kuitan_enabled; a well-formed `Rule` value sets exactly
+ * one of the two.
+ */
+inline constexpr Rule kuitan_disabled = Rule::kuitan_disabled_;
+
+/**
+ * @brief A `Rule` flag recognising double yakuman (ダブル役満).
+ *
+ * Selects the alternative in which yakuman that are conventionally worth two
+ * yakuman (such as the thirteen-wait form of Kokushi musou, the tanki-wait
+ * form of Suu ankou, Junsei Chuuren Poutou, and Daisuushii) contribute a
+ * yakuman multiplier of `2`. It is mutually exclusive with
+ * @ref double_yakuman_disabled; a well-formed `Rule` value sets exactly one
+ * of the two.
+ */
+inline constexpr Rule double_yakuman_enabled = Rule::double_yakuman_enabled_;
+
+/**
+ * @brief A `Rule` flag not recognising double yakuman (ダブル役満).
+ *
+ * Selects the alternative in which every yakuman contributes a yakuman
+ * multiplier of `1`, regardless of whether it is conventionally worth two
+ * yakuman. It is mutually exclusive with @ref double_yakuman_enabled; a
+ * well-formed `Rule` value sets exactly one of the two.
+ */
+inline constexpr Rule double_yakuman_disabled = Rule::double_yakuman_disabled_;
+
+/**
+ * @brief A `Rule` flag selecting 2 fu for a double-wind pair (連風牌).
+ *
+ * A double-wind pair is a pair of an honor tile that is simultaneously the
+ * round wind and the seat wind (for example, an East pair in the East round
+ * for the East seat). Selects the alternative in which such a pair is worth
+ * 2 fu. It is mutually exclusive with @ref double_wind_pair_4fu; a
+ * well-formed `Rule` value sets exactly one of the two.
+ */
+inline constexpr Rule double_wind_pair_2fu = Rule::double_wind_pair_2fu_;
+
+/**
+ * @brief A `Rule` flag selecting 4 fu for a double-wind pair (連風牌).
+ *
+ * A double-wind pair is a pair of an honor tile that is simultaneously the
+ * round wind and the seat wind (for example, an East pair in the East round
+ * for the East seat). Selects the alternative in which such a pair is worth
+ * 4 fu (2 fu for the round wind plus 2 fu for the seat wind). It is mutually
+ * exclusive with @ref double_wind_pair_2fu; a well-formed `Rule` value sets
+ * exactly one of the two.
+ */
+inline constexpr Rule double_wind_pair_4fu = Rule::double_wind_pair_4fu_;
+
+/**
+ * @brief Computes the bitwise AND of two `Rule` flag sets.
+ *
+ * Treats the operands as bitmasks over the `Rule` flag bits and returns a
+ * `Rule` value containing only the flags set in both @p lhs and @p rhs.
+ * This is typically used to test whether a particular option (or set of
+ * options) is present in a combined `Rule` value.
+ *
+ * @param lhs The left-hand `Rule` operand.
+ * @param rhs The right-hand `Rule` operand.
+ * @return A `Rule` value whose bits are the bitwise AND of the operands'
+ *         underlying representations.
+ */
+inline constexpr Rule operator&(Rule const lhs, Rule const rhs)
+{
+  return static_cast<Rule>(std::to_underlying(lhs) & std::to_underlying(rhs));
+}
+
+/**
+ * @brief Computes the bitwise OR of two `Rule` flag sets.
+ *
+ * Treats the operands as bitmasks over the `Rule` flag bits and returns a
+ * `Rule` value containing every flag set in either @p lhs or @p rhs. This
+ * is typically used to combine multiple `Rule` options into a single value
+ * describing a complete rule configuration (e.g.
+ * `kuitan_enabled | double_wind_pair_4fu`).
+ *
+ * @param lhs The left-hand `Rule` operand.
+ * @param rhs The right-hand `Rule` operand.
+ * @return A `Rule` value whose bits are the bitwise OR of the operands'
+ *         underlying representations.
+ */
+inline constexpr Rule operator|(Rule const lhs, Rule const rhs)
+{
+  return static_cast<Rule>(std::to_underlying(lhs) | std::to_underlying(rhs));
+}
+
+/**
+ * @brief Compound bitwise AND assignment for `Rule` flag sets.
+ *
+ * Replaces @p lhs with the bitwise AND of @p lhs and @p rhs, retaining only
+ * the flags that are set in both operands. This is the in-place counterpart
+ * to `operator&(Rule, Rule)` and is typically used to mask a `Rule` value
+ * down to a subset of options of interest.
+ *
+ * @param lhs The `Rule` value to update in place.
+ * @param rhs The `Rule` mask to AND into @p lhs.
+ * @return A reference to @p lhs after the update.
+ */
+inline constexpr Rule &operator&=(Rule &lhs, Rule const rhs)
+{
+  lhs = lhs & rhs;
+  return lhs;
+}
+
+/**
+ * @brief Compound bitwise OR assignment for `Rule` flag sets.
+ *
+ * Replaces @p lhs with the bitwise OR of @p lhs and @p rhs, adding every
+ * flag set in @p rhs to @p lhs. This is the in-place counterpart to
+ * `operator|(Rule, Rule)` and is typically used to incrementally accumulate
+ * `Rule` options into a single value.
+ *
+ * @param lhs The `Rule` value to update in place.
+ * @param rhs The `Rule` flags to OR into @p lhs.
+ * @return A reference to @p lhs after the update.
+ */
+inline constexpr Rule &operator|=(Rule &lhs, Rule const rhs)
+{
+  lhs = lhs | rhs;
+  return lhs;
+}
+
+/**
+ * @brief Computes the bitwise complement of a `Rule` flag set.
+ *
+ * Treats @p rule as a bitmask over the underlying `Rule` representation and
+ * returns a `Rule` value whose bits are the bitwise inverse of @p rule. This
+ * is primarily useful when building masks, for example to remove a subset of
+ * flags with `rule & ~flags_to_remove`.
+ *
+ * The complement is taken over the full underlying integer representation,
+ * not only over the currently defined `Rule` flag bits. Callers that need a
+ * value containing only known flags should additionally mask the result with
+ * the desired set of valid flags.
+ *
+ * @param rule The `Rule` value to complement.
+ * @return A `Rule` value whose underlying representation is the bitwise
+ *         complement of @p rule.
+ */
+inline constexpr Rule operator~(Rule const rule)
+{
+  return static_cast<Rule>(~std::to_underlying(rule));
+}
+
+/**
+ * @brief Tests whether open tanyao (kuitan) is awarded under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref kuitan_enabled is set in @p rule, otherwise `false`.
+ */
+inline constexpr bool isKuitanEnabled(Rule const rule)
+{
+  return (rule & kuitan_enabled) == kuitan_enabled;
+}
+
+/**
+ * @brief Tests whether open tanyao (kuitan) is withheld under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref kuitan_disabled is set in @p rule, otherwise `false`.
+ */
+inline constexpr bool isKuitanDisabled(Rule const rule)
+{
+  return (rule & kuitan_disabled) == kuitan_disabled;
+}
+
+/**
+ * @brief Tests whether double yakuman is recognised under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref double_yakuman_enabled is set in @p rule, otherwise
+ *         `false`.
+ */
+inline constexpr bool isDoubleYakumanEnabled(Rule const rule)
+{
+  return (rule & double_yakuman_enabled) == double_yakuman_enabled;
+}
+
+/**
+ * @brief Tests whether double yakuman is not recognised under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref double_yakuman_disabled is set in @p rule, otherwise
+ *         `false`.
+ */
+inline constexpr bool isDoubleYakumanDisabled(Rule const rule)
+{
+  return (rule & double_yakuman_disabled) == double_yakuman_disabled;
+}
+
+/**
+ * @brief Tests whether a double-wind pair is worth 2 fu under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref double_wind_pair_2fu is set in @p rule, otherwise
+ *         `false`.
+ */
+inline constexpr bool isDoubleWindPair2Fu(Rule const rule)
+{
+  return (rule & double_wind_pair_2fu) == double_wind_pair_2fu;
+}
+
+/**
+ * @brief Tests whether a double-wind pair is worth 4 fu under a `Rule` value.
+ *
+ * @param rule The `Rule` value to inspect.
+ * @return `true` if @ref double_wind_pair_4fu is set in @p rule, otherwise
+ *         `false`.
+ */
+inline constexpr bool isDoubleWindPair4Fu(Rule const rule)
+{
+  return (rule & double_wind_pair_4fu) == double_wind_pair_4fu;
+}
+
+/**
+ * @brief Predefined `Rule` configurations matching the rule sets adopted by
+ *        several major mahjong organizations, leagues, and services.
+ *
+ * Each constant in this namespace is a complete, well-formed `Rule` value: it
+ * selects exactly one alternative for every one of the three options that
+ * `Rule` models (open tanyao, double yakuman, and double-wind pair fu), and
+ * is therefore accepted directly by the score calculator without further
+ * combination. The constants describe only those three options; any other
+ * scoring rule used by the corresponding organization that falls outside the
+ * scope of `Rule` is not represented here.
+ *
+ * The constants are placed in their own namespace both to group them and to
+ * avoid a name clash with @ref FuHan::tenhou, the `Context` flag for the
+ * tenhou (天和) yaku, which is unrelated to the Tenhou (天鳳) online service.
+ */
+namespace Rules {
+
+/**
+ * @brief The `Rule` configuration adopted by the Tenhou (天鳳) online service.
+ *
+ * Selects open tanyao enabled, double yakuman not recognised, and a
+ * double-wind pair (連風牌) worth 4 fu.
+ */
+inline constexpr Rule tenhou
+  = kuitan_enabled
+  | double_yakuman_disabled
+  | double_wind_pair_4fu;
+
+/**
+ * @brief The `Rule` configuration adopted by the Mahjong Soul (雀魂) online service.
+ *
+ * Selects open tanyao enabled, double yakuman recognised, and a double-wind
+ * pair (連風牌) worth 4 fu.
+ */
+inline constexpr Rule mahjong_soul
+  = kuitan_enabled
+  | double_yakuman_enabled
+  | double_wind_pair_4fu;
+
+/**
+ * @brief The `Rule` configuration adopted by the M.League (Mリーグ) professional league.
+ *
+ * Selects open tanyao enabled, double yakuman not recognised, and a
+ * double-wind pair (連風牌) worth 2 fu.
+ */
+inline constexpr Rule m_league
+  = kuitan_enabled
+  | double_yakuman_disabled
+  | double_wind_pair_2fu;
+
+} // namespace Rules
+
+/**
  * @brief The outcome of a score calculation for a winning hand.
  *
  * Aggregates the three quantities required to determine the score of a

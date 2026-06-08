@@ -203,7 +203,8 @@ void testChiniisouImpl(
     {}, // ankan_list
     9u * suit + winning_tile,
     0u, // num_dora
-    context);
+    context,
+    FuHan::Rules::mahjong_soul);
 
   if (expected_fu == 0u && expected_han == 0u) {
     if (result.han != 0u || result.yakuman_multiplier != 0u) {
