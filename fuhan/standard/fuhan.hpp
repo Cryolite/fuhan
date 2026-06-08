@@ -159,14 +159,17 @@ inline bool isPinfuShape(
  *     - `2` for a single yakuhai pair (round wind alone, seat wind
  *       alone, or one of the three dragon tiles, identified by
  *       `base_tile >= 31`).
- *     - `4` when the pair is simultaneously the round wind and the
- *       seat wind (double-wind / renpuu pair).
+ *     - `2` or `4` when the pair is simultaneously the round wind and
+ *       the seat wind (double-wind / renpuu pair): `4` under the
+ *       `double_wind_pair_4fu` rule, or `2` under `double_wind_pair_2fu`.
  *   - **Wait fu** based on `decomposition.wait_type`:
  *     - `0` for two-sided (ryanmen) and double-pair (shanpon).
  *     - `2` for inside (kanchan), edge (penchan), and pair (tanki).
  *   - **Menzen-ron bonus** of `10` if @p is_ron and @p is_closed_hand
  *     are both `true`.
- *   - **Tsumo bonus** of `2` if @p is_ron is `false`.
+ *   - **Tsumo bonus** of `2` if @p is_ron is `false`. A rinshan kaihou
+ *     self-draw is treated as an ordinary self-draw and likewise
+ *     receives this `2` fu bonus.
  *
  * @param round_wind     The prevailing round wind, used to identify
  *                       the round-wind value tile when the pair is
@@ -186,6 +189,8 @@ inline bool isPinfuShape(
  * @param is_pinfu_shape `true` iff @p decomposition has pinfu shape,
  *                       as determined by `isPinfuShape`. Selects the
  *                       flat 20/30 fu branch when applicable.
+ * @param rule           The active rule configuration. Selects the
+ *                       fu awarded for a double-wind pair (2 vs 4).
  *
  * @return The fu (minipoints) of @p decomposition, *unrounded*. The
  *         value is at least `20` for any input.
@@ -201,7 +206,8 @@ inline std::uint_fast8_t calculateFu(
   FuHan::Standard_::DecompositionElement const &decomposition,
   bool const is_ron,
   bool const is_closed_hand,
-  bool const is_pinfu_shape)
+  bool const is_pinfu_shape,
+  FuHan::Rule const rule)
 {
   if (is_pinfu_shape) {
     if (!is_ron && is_closed_hand) {
@@ -241,7 +247,8 @@ inline std::uint_fast8_t calculateFu(
       std::uint_fast8_t const round_wind_ = std::to_underlying(round_wind);
       std::uint_fast8_t const seat_wind_ = std::to_underlying(seat_wind);
       if (base_tile == round_wind_ || base_tile == seat_wind_ || base_tile >= 31u) {
-        fu += (base_tile == round_wind_ && base_tile == seat_wind_) ? 4u : 2u;
+        bool const is_double_wind_pair = base_tile == round_wind_ && base_tile == seat_wind_;
+        fu += is_double_wind_pair ? (isDoubleWindPair4Fu(rule) ? 4u : 2u) : 2u;
       }
       continue;
     }
@@ -332,13 +339,19 @@ inline std::uint_fast8_t checkDaisangen(FuHan::Standard_::DecompositionElement c
  *
  * @param decomposition The block decomposition to test. Must contain
  *                      exactly four meld blocks and one pair block.
- * @return `2` if @p decomposition establishes Suuankou tanki (double
- *         yakuman), `1` if it establishes plain Suuankou (single yakuman),
- *         and `0` otherwise. The return value is the yakuman multiplier
- *         contributed by this yaku and can be added directly to a running
- *         multiplier total.
+ * @param rule          The active rule configuration. When it selects
+ *                      `double_yakuman_disabled`, Suuankou tanki is
+ *                      capped to a multiplier of `1` instead of `2`.
+ * @return `2` if @p decomposition establishes Suuankou tanki and @p rule
+ *         selects `double_yakuman_enabled`; `1` if it establishes
+ *         Suuankou tanki under `double_yakuman_disabled` or plain
+ *         Suuankou; and `0` otherwise. The return value is the yakuman
+ *         multiplier contributed by this yaku and can be added directly
+ *         to a running multiplier total.
  */
-inline std::uint_fast8_t checkSuuankou(FuHan::Standard_::DecompositionElement const &decomposition)
+inline std::uint_fast8_t checkSuuankou(
+  FuHan::Standard_::DecompositionElement const &decomposition,
+  FuHan::Rule const rule)
 {
   std::uint_fast8_t count = 0u;
   for (FuHan::Standard_::Block const &block : decomposition.blocks) {
@@ -347,7 +360,11 @@ inline std::uint_fast8_t checkSuuankou(FuHan::Standard_::DecompositionElement co
     }
   }
 
-  return count >= 4u ? (decomposition.wait_type == FuHan::Standard_::WaitType::pair ? 2u : 1u) : 0u;
+  if (count < 4u) {
+    return 0u;
+  }
+  bool const is_tanki = decomposition.wait_type == FuHan::Standard_::WaitType::pair;
+  return is_tanki && isDoubleYakumanEnabled(rule) ? 2u : 1u;
 }
 
 /**
@@ -498,13 +515,19 @@ inline std::uint_fast8_t checkChinroutou(FuHan::Standard_::DecompositionElement 
  *
  * @param decomposition The block decomposition to test. Must contain
  *                      exactly four meld blocks and one pair block.
- * @return `2` if @p decomposition establishes Daisuushii (double
- *         yakuman), `1` if it establishes Shousuushii (single yakuman),
+ * @param rule          The active rule configuration. When it selects
+ *                      `double_yakuman_disabled`, Daisuushii is capped
+ *                      to a multiplier of `1` instead of `2`.
+ * @return `2` if @p decomposition establishes Daisuushii and @p rule
+ *         selects `double_yakuman_enabled`; `1` if it establishes
+ *         Daisuushii under `double_yakuman_disabled` or Shousuushii;
  *         and `0` otherwise. The return value is the yakuman multiplier
  *         contributed by this yaku and can be added directly to a
  *         running multiplier total.
  */
-inline std::uint_fast8_t checkSuushii(FuHan::Standard_::DecompositionElement const &decomposition)
+inline std::uint_fast8_t checkSuushii(
+  FuHan::Standard_::DecompositionElement const &decomposition,
+  FuHan::Rule const rule)
 {
   std::uint_fast8_t triplet_count = 0u;
   std::uint_fast8_t pair_count = 0u;
@@ -521,7 +544,7 @@ inline std::uint_fast8_t checkSuushii(FuHan::Standard_::DecompositionElement con
     }
   }
 
-  return triplet_count == 4u ? 2u : (triplet_count == 3u && pair_count == 1u ? 1u : 0u);
+  return triplet_count == 4u ? (isDoubleYakumanEnabled(rule) ? 2u : 1u) : (triplet_count == 3u && pair_count == 1u ? 1u : 0u);
 }
 
 /**
@@ -606,17 +629,23 @@ inline std::uint_fast8_t checkSuukantsu(FuHan::Standard_::DecompositionElement c
  *                       function returns `0` when this is `false`,
  *                       since Chuuren Poutou cannot be established
  *                       with an open hand.
+ * @param rule           The active rule configuration. When it selects
+ *                       `double_yakuman_disabled`, Junsei Chuuren
+ *                       Poutou is capped to a multiplier of `1` instead
+ *                       of `2`.
  *
- * @return `2` if the hand establishes Junsei Chuuren Poutou (double
- *         yakuman), `1` if it establishes plain Chuuren Poutou (single
- *         yakuman), and `0` otherwise. The return value is the yakuman
- *         multiplier contributed by this yaku and can be added directly
- *         to a running multiplier total.
+ * @return `2` if the hand establishes Junsei Chuuren Poutou and @p rule
+ *         selects `double_yakuman_enabled`; `1` if it establishes
+ *         Junsei Chuuren Poutou under `double_yakuman_disabled` or plain
+ *         Chuuren Poutou; and `0` otherwise. The return value is the
+ *         yakuman multiplier contributed by this yaku and can be added
+ *         directly to a running multiplier total.
  */
 inline std::uint_fast8_t checkChuurenPoutou(
   std::array<std::uint_fast8_t, 34u> const &concealed_hand,
   std::uint_fast8_t const winning_tile,
-  bool const is_closed_hand)
+  bool const is_closed_hand,
+  FuHan::Rule const rule)
 {
   if (!is_closed_hand) {
     return 0u;
@@ -651,7 +680,7 @@ inline std::uint_fast8_t checkChuurenPoutou(
 
   --counts[winning_tile % 9u];
   if (counts[0u] == 3u && counts[1u] == 1u && counts[2u] == 1u && counts[3u] == 1u && counts[4u] == 1u && counts[5u] == 1u && counts[6u] == 1u && counts[7u] == 1u && counts[8u] == 3u) {
-    return 2u;
+    return isDoubleYakumanEnabled(rule) ? 2u : 1u;
   }
   ++counts[winning_tile % 9u];
 
@@ -1472,6 +1501,9 @@ inline std::uint_fast8_t checkIsshoku(
  *                       or open kan). Used by both the fu calculation
  *                       and the yaku checks for which menzen is a
  *                       prerequisite.
+ * @param rule           The active rule configuration. Selects open
+ *                       tanyao (kuitan), double-yakuman recognition,
+ *                       and the double-wind pair fu.
  * @return The score components for this decomposition. If any
  *         non-counted yakuman is established, the returned
  *         `yakuman_multiplier` is positive and `han` is `0`;
@@ -1486,22 +1518,23 @@ inline FuHan::Result calculateFuHanImpl(
   std::uint_fast8_t const winning_tile,
   FuHan::Standard_::DecompositionElement const &decomposition,
   bool const is_ron,
-  bool const is_closed_hand)
+  bool const is_closed_hand,
+  FuHan::Rule const rule)
 {
   bool const is_pinfu_shape = isPinfuShape(round_wind, seat_wind, decomposition);
 
   std::uint_fast8_t const fu = calculateFu(
-    round_wind, seat_wind, decomposition, is_ron, is_closed_hand, is_pinfu_shape);
+    round_wind, seat_wind, decomposition, is_ron, is_closed_hand, is_pinfu_shape, rule);
 
   std::uint_fast8_t yakuman_multiplier = 0u;
   yakuman_multiplier += checkDaisangen(decomposition);
-  yakuman_multiplier += checkSuuankou(decomposition);
+  yakuman_multiplier += checkSuuankou(decomposition, rule);
   yakuman_multiplier += checkTsuuiisou(decomposition);
   yakuman_multiplier += checkRyuuiisou(decomposition);
   yakuman_multiplier += checkChinroutou(decomposition);
-  yakuman_multiplier += checkSuushii(decomposition);
+  yakuman_multiplier += checkSuushii(decomposition, rule);
   yakuman_multiplier += checkSuukantsu(decomposition);
-  yakuman_multiplier += checkChuurenPoutou(concealed_hand, winning_tile, is_closed_hand);
+  yakuman_multiplier += checkChuurenPoutou(concealed_hand, winning_tile, is_closed_hand, rule);
   if (yakuman_multiplier >= 1u) {
     return FuHan::Result{
       .fu = fu,
@@ -1513,7 +1546,9 @@ inline FuHan::Result calculateFuHanImpl(
   std::uint_fast8_t han = 0u;
   han += checkMenzenTsumo(is_ron, is_closed_hand);
   han += countYakuhaiHan(round_wind, seat_wind, decomposition);
-  han += checkTanyao(decomposition);
+  if (is_closed_hand || isKuitanEnabled(rule)) {
+    han += checkTanyao(decomposition);
+  }
   han += checkPeikou(decomposition, is_closed_hand);
   han += checkPinfu(is_closed_hand, is_pinfu_shape);
   han += checkYaochuuYaku(decomposition, is_closed_hand);
@@ -1590,6 +1625,9 @@ inline FuHan::Result calculateFuHanImpl(
  *                       riichi, ippatsu, chankan, rinshan kaihou,
  *                       haitei/houtei, tenhou/chiihou, etc.). Multiple
  *                       flags may be combined with `operator|`.
+ * @param rule           The active rule configuration. Selects open
+ *                       tanyao (kuitan), double-yakuman recognition,
+ *                       and the double-wind pair fu.
  * @return The best-scoring `Result` for the given hand and context.
  *         If the hand does not admit a standard winning decomposition,
  *         or if no yaku (and no yakuman) is established, the returned
@@ -1607,7 +1645,8 @@ inline FuHan::Result calculateFuHan(
   std::array<std::uint_fast8_t, 34u> const &ankan_list,
   std::uint_fast8_t const winning_tile,
   std::uint_fast8_t const num_dora,
-  FuHan::Context const context)
+  FuHan::Context const context,
+  FuHan::Rule const rule)
 {
   bool const is_ron = isRon(context);
 
@@ -1634,7 +1673,8 @@ inline FuHan::Result calculateFuHan(
       winning_tile,
       decomp_elem,
       is_ron,
-      is_closed_hand);
+      is_closed_hand,
+      rule);
     best_result = std::max(best_result, result);
   }
   assert((best_result.fu > 0u));

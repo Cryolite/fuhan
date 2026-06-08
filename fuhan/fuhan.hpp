@@ -18,7 +18,7 @@
 
 namespace FuHan{
 
-inline constexpr FuHan::Context valid_mask_
+inline constexpr FuHan::Context valid_context_mask_
   = Context::tsumo_
   | Context::ron_
   | Context::riichi_
@@ -30,6 +30,14 @@ inline constexpr FuHan::Context valid_mask_
   | Context::ippatsu_
   | Context::tenhou_
   | Context::chiihou_;
+
+inline constexpr FuHan::Rule valid_rule_mask_
+  = Rule::kuitan_enabled_
+  | Rule::kuitan_disabled_
+  | Rule::double_yakuman_enabled_
+  | Rule::double_yakuman_disabled_
+  | Rule::double_wind_pair_2fu_
+  | Rule::double_wind_pair_4fu_;
 
 /**
  * @brief Validates the inputs to `calculateFuHan` and throws on error.
@@ -96,6 +104,13 @@ inline constexpr FuHan::Context valid_mask_
  *     - `double_riichi` with `tenhou` or `chiihou`;
  *     - `ippatsu` with `tenhou` or `chiihou`;
  *     - `tenhou` with `chiihou`.
+ * - @p rule is a well-formed rule configuration: it contains only
+ *   defined `FuHan::Rule` flags, and selects exactly one of the two
+ *   mutually exclusive alternatives for each of the three rule options
+ *   (kuitan, double yakuman, and double-wind pair fu). An
+ *   under-specified configuration (an option with neither alternative
+ *   set) or a contradictory one (an option with both alternatives set)
+ *   is rejected.
  *
  * @param round_wind     The prevailing round wind.
  * @param seat_wind      The seat wind of the winning player.
@@ -116,6 +131,11 @@ inline constexpr FuHan::Context valid_mask_
  *                       win. Must contain only defined `Context`
  *                       flags and must satisfy the context consistency
  *                       rules listed above.
+ * @param rule           A `FuHan::Rule` value selecting the optional
+ *                       scoring rules in effect. Must be a well-formed
+ *                       configuration that selects exactly one
+ *                       alternative for each of the three rule options
+ *                       (see the corresponding invariant above).
  *
  * @throws std::invalid_argument If any of the invariants listed above
  *         is violated. The exception message identifies the offending
@@ -130,7 +150,8 @@ inline void checkInput_(
   std::array<std::uint_fast8_t, 34u> const &open_kan_list,
   std::array<std::uint_fast8_t, 34u> const &ankan_list,
   std::uint_fast8_t const winning_tile,
-  FuHan::Context const context)
+  FuHan::Context const context,
+  FuHan::Rule const rule)
 {
   if (round_wind < Wind::east_ || round_wind > Wind::north_) {
     std::ostringstream oss;
@@ -275,7 +296,7 @@ inline void checkInput_(
     }
   }
 
-  if ((context & ~valid_mask_) != Context{}) {
+  if ((context & ~valid_context_mask_) != Context{}) {
     throw std::invalid_argument("`context` contains invalid flags.");
   }
 
@@ -406,6 +427,24 @@ inline void checkInput_(
   if (total_num_open_kan + total_num_ankan == 0u && isRinshanKaihou(context)) {
     throw std::invalid_argument("Rinshan kaihou cannot be set if there are no kans.");
   }
+
+  if ((rule & ~valid_rule_mask_) != Rule{}) {
+    throw std::invalid_argument("`rule` contains invalid flags.");
+  }
+  if (isKuitanEnabled(rule) == isKuitanDisabled(rule)) {
+    throw std::invalid_argument(
+      "The kuitan rule must select exactly one of `kuitan_enabled` or `kuitan_disabled`.");
+  }
+  if (isDoubleYakumanEnabled(rule) == isDoubleYakumanDisabled(rule)) {
+    throw std::invalid_argument(
+      "The double yakuman rule must select exactly one of `double_yakuman_enabled` "
+      "or `double_yakuman_disabled`.");
+  }
+  if (isDoubleWindPair2Fu(rule) == isDoubleWindPair4Fu(rule)) {
+    throw std::invalid_argument(
+      "The double-wind pair fu rule must select exactly one of `double_wind_pair_2fu` "
+      "or `double_wind_pair_4fu`.");
+  }
 }
 
 /**
@@ -502,6 +541,15 @@ inline void checkInput_(
  *                       defined `Context` flags, must specify exactly
  *                       one of `tsumo` or `ron`, and must not combine
  *                       mutually exclusive flags (see `checkInput_`).
+ * @param rule           A bitmask of `FuHan::Rule` flags selecting
+ *                       the optional scoring rules in effect (open
+ *                       tanyao, double yakuman, and double-wind pair
+ *                       fu). Must be a well-formed configuration that
+ *                       selects exactly one alternative for each of
+ *                       the three rule options; a preset from
+ *                       `FuHan::Rules` (e.g. `FuHan::Rules::tenhou`)
+ *                       may be used. See `checkInput_` for the
+ *                       validation rules.
  *
  * @return The highest-scoring `FuHan::Result` among the standard,
  *         Chiitoitsu, and Kokushi musou interpretations. The returned
@@ -560,7 +608,8 @@ inline FuHan::Result calculateFuHan(
   std::array<std::uint_fast8_t, 34u> const &ankan_list,
   std::uint_fast8_t const winning_tile,
   std::uint_fast8_t const num_dora,
-  FuHan::Context const context)
+  FuHan::Context const context,
+  FuHan::Rule const rule)
 {
   checkInput_(
     round_wind,
@@ -571,7 +620,8 @@ inline FuHan::Result calculateFuHan(
     open_kan_list,
     ankan_list,
     winning_tile,
-    context);
+    context,
+    rule);
 
   FuHan::Result result0 = FuHan::Standard_::calculateFuHan(
     round_wind,
@@ -583,7 +633,8 @@ inline FuHan::Result calculateFuHan(
     ankan_list,
     winning_tile,
     num_dora,
-    context);
+    context,
+    rule);
 
   FuHan::Result result1 = FuHan::SevenPairs_::calculateFuHan(
     concealed_hand,
@@ -594,7 +645,8 @@ inline FuHan::Result calculateFuHan(
   FuHan::Result result2 = FuHan::ThirteenOrphans_::calculateFuHan(
     concealed_hand,
     winning_tile,
-    context);
+    context,
+    rule);
 
   return std::max({result0, result1, result2});
 }

@@ -22,6 +22,7 @@ public entry-point function: `FuHan::calculateFuHan`.
 - [Motivation](#motivation)
 - [Features](#features)
 - [Non-goals](#non-goals)
+- [Supported Rule Variants](#supported-rule-variants)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Building from Source](#building-from-source)
@@ -67,7 +68,8 @@ FuHan::Result FuHan::calculateFuHan(
     std::array<std::uint_fast8_t, 34u> const &ankan_list,
     std::uint_fast8_t winning_tile,
     std::uint_fast8_t num_dora,
-    FuHan::Context context);
+    FuHan::Context context,
+    FuHan::Rule rule);
 ```
 
 Given a fully described winning hand and its situational context, the
@@ -99,6 +101,14 @@ hands without re-implementing the rules from scratch.
 - **Multiple winning shapes.** Standard, Chiitoitsu (seven pairs), and
   Kokushi Musou (thirteen orphans) are all considered, and the
   highest-scoring interpretation is returned automatically.
+- **Configurable rule variants, with ready-made presets.** Fu and han
+  are computed under a caller-selected `FuHan::Rule` configuration that
+  covers the scoring options which differ between rule sets (open
+  tanyao, double yakuman, and double-wind pair fu). The `FuHan::Rules`
+  namespace ships presets matching the rule sets of several major
+  leagues, competitive organizations, and online services (e.g.
+  Tenhou, Mahjong Soul, M.League). See
+  [Supported Rule Variants](#supported-rule-variants).
 - **Strict input validation.** Structural invariants are checked on
   every call and violations are reported with descriptive
   `std::invalid_argument` messages.
@@ -129,8 +139,88 @@ hands without re-implementing the rules from scratch.
   is a winning hand, in addition to scoring known winning hands.
 - The library does **not** detect or interpret aka (red) dora from
   tile data. The caller must pass the total dora count (regular + aka + ura, when applicable) via `num_dora`.
-- TODO: Confirm and document any rule variants intentionally **not**
-  supported (e.g. local yaku, optional house rules).
+- The library models only the three rule variations described under
+  [Supported Rule Variants](#supported-rule-variants); other rule
+  variants (local yaku, optional house rules, etc.) are out of scope
+  and are enumerated under
+  [Rules not supported](#rules-not-supported).
+
+## Supported Rule Variants
+
+Riichi Mahjong is played under many slightly different rule sets, and
+several scoring decisions differ from one league, competitive
+organization, or online service to another. `FuHan::calculateFuHan`
+takes a [`FuHan::Rule`](#fuhanrule) argument that selects, independently,
+each of the following three scoring options. Every option is a binary
+choice that **must be specified explicitly** — there is no implicit
+default, and an under-specified or contradictory configuration is
+rejected (see [`FuHan::Rule`](#fuhanrule) and
+[Error Handling](#error-handling)).
+
+| Rule option | Alternatives | `FuHan::Rule` flags |
+|-------------|--------------|---------------------|
+| Open tanyao (kuitan, 喰いタン)            | awarded for an open hand / not awarded   | `kuitan_enabled` / `kuitan_disabled`               |
+| Double yakuman (ダブル役満)              | recognised / every yakuman counts once   | `double_yakuman_enabled` / `double_yakuman_disabled` |
+| Double-wind pair fu (連風牌の雀頭)        | 4 fu / 2 fu                              | `double_wind_pair_4fu` / `double_wind_pair_2fu`    |
+
+The double-yakuman option governs the yaku that are conventionally
+worth two yakuman: Suuankou tanki (四暗刻単騎), Daisuushii (大四喜),
+Junsei Chuuren Poutou (純正九蓮宝燈), and Kokushi Musou juusan menmachi
+(国士無双十三面待ち). Chiitoitsu (seven pairs) is unaffected by all three
+options above: its fu is fixed at 25, it is always concealed, and none
+of the three options can apply to it.
+
+The fu for a rinshan kaihou self-draw (嶺上開花のツモ符) is **not**
+configurable: such a win is always treated as an ordinary self-draw and
+receives the standard 2 fu tsumo bonus, matching the rule sets of
+essentially all major organizations, leagues, and services.
+
+### Rule presets
+
+For convenience, the [`FuHan::Rules`](#fuhanrules) namespace provides
+ready-made `FuHan::Rule` configurations matching the rule sets adopted
+by several major mahjong organizations, leagues, and online services.
+Each preset is a complete, well-formed value and can be passed directly
+as the `rule` argument:
+
+| Preset                       | Rule set            |
+|------------------------------|---------------------|
+| `FuHan::Rules::tenhou`       | Tenhou (天鳳)        |
+| `FuHan::Rules::mahjong_soul` | Mahjong Soul (雀魂)  |
+| `FuHan::Rules::m_league`     | M.League (Mリーグ)   |
+
+See [`FuHan::Rules`](#fuhanrules) for the exact per-option values of
+each preset.
+
+### Rules not supported
+
+The three options above are the **only** rule variations that affect the
+fu and han computed by this library. The following rule variations,
+several of which differ between real-world rule sets, are **not**
+modeled and are out of scope:
+
+- **Points / score rules.** Mapping fu and han to a points payout, the
+  mangan / haneman / baiman / sanbaiman caps, **kiriage mangan**
+  (切り上げ満貫), and any honba (本場) or riichi-stick accounting are
+  the caller's responsibility (see [Non-goals](#non-goals)).
+- **Counted yakuman (kazoe yakuman, 数え役満) policy.** The library
+  reports a hand of `han >= 13` with `yakuman_multiplier == 0`; whether
+  to treat that as a yakuman, and any cap on the number of stacked
+  yakuman, is the caller's decision (see
+  [Yakuman Multiplier](#yakuman-multiplier)).
+- **Local / optional yaku (ローカル役).** For example Renhou (人和),
+  Nagashi mangan (流し満貫), Daisharin (大車輪), Sanrenkou (三連刻),
+  Suurenkou (四連刻), and Open riichi (オープン立直) are not
+  recognised; correspondingly, there is no `FuHan::Context` flag for
+  such situations.
+- **Three-player mahjong (三人麻雀) rules.** Kita nukidora (北抜きドラ)
+  and other sanma-specific scoring are not modeled.
+- **Rinshan kaihou tsumo fu (嶺上開花のツモ符) variant.** A rinshan
+  kaihou self-draw is always scored with the standard 2 fu tsumo bonus;
+  the minority rule that awards 0 fu in this case is not supported.
+- **Aka (red) dora detection.** The caller must count all dora
+  (regular + aka + ura) and pass the total via `num_dora`; the library
+  does not infer aka dora from tile data (see [Non-goals](#non-goals)).
 
 ## Requirements
 
@@ -296,7 +386,8 @@ int main()
         chii_list, pon_list, open_kan_list, ankan_list,
         /*winning_tile=*/10u, // 2p
         /*num_dora=*/0u,
-        tsumo);
+        tsumo,
+        Rules::tenhou);
 
     std::cout << "fu="  << unsigned(r.fu)
               << " han=" << unsigned(r.han)
@@ -312,6 +403,8 @@ int main()
 | `FuHan::calculateFuHan`         | function    | `fuhan/fuhan.hpp`       | **The** entry point. Returns the best-scoring `Result`.                 |
 | `FuHan::Wind`                   | enum struct | `fuhan/types.hpp`       | The four wind values (`east`, `south`, `west`, `north`).                |
 | `FuHan::Context`                | enum struct | `fuhan/types.hpp`       | Bitmask of situational flags (tsumo/ron/riichi/ippatsu/...).            |
+| `FuHan::Rule`                   | enum struct | `fuhan/types.hpp`       | Bitmask selecting optional scoring rules (kuitan/double yakuman/...).   |
+| `FuHan::Rules`                  | namespace   | `fuhan/types.hpp`       | Preset `Rule` configurations (`tenhou`, `mahjong_soul`, `m_league`).    |
 | `FuHan::Result`                 | struct      | `fuhan/types.hpp`       | Output: `fu`, `han`, `yakuman_multiplier`.                              |
 
 Parameter summary for `calculateFuHan`:
@@ -328,6 +421,7 @@ Parameter summary for `calculateFuHan`:
 | `winning_tile`   | `std::uint_fast8_t`                             | Internal tile index of the winning tile, in `[0, 34)`.                  |
 | `num_dora`       | `std::uint_fast8_t`                             | Total dora (regular + aka + ura). Counted only if a yaku is established.|
 | `context`        | `FuHan::Context`                                | Situational flag bitmask. Exactly one of `tsumo`/`ron` required.        |
+| `rule`           | `FuHan::Rule`                                   | Optional-rule bitmask. Exactly one alternative per option required.     |
 
 ## Detailed API Reference
 
@@ -344,7 +438,8 @@ inline FuHan::Result calculateFuHan(
     std::array<std::uint_fast8_t, 34u> const &ankan_list,
     std::uint_fast8_t winning_tile,
     std::uint_fast8_t num_dora,
-    FuHan::Context context);
+    FuHan::Context context,
+    FuHan::Rule rule);
 ```
 
 The single public entry point. The function:
@@ -403,6 +498,14 @@ The single public entry point. The function:
   `operator|` (e.g. `riichi | tsumo | ippatsu`). Exactly one of
   `tsumo` or `ron` must be set, and no pair of mutually exclusive
   flags may be combined; see [Error Handling](#error-handling).
+- **`rule`** — Bitmask of `FuHan::Rule` flags selecting the optional
+  scoring rules in effect (open tanyao, double yakuman, and
+  double-wind pair fu). Each of the three options must select exactly
+  one of its two mutually exclusive alternatives; an under-specified or
+  contradictory configuration throws (see
+  [Error Handling](#error-handling)). Preset configurations are
+  provided in the `FuHan::Rules` namespace (e.g. `FuHan::Rules::tenhou`,
+  `FuHan::Rules::mahjong_soul`, `FuHan::Rules::m_league`).
 
 #### Return value
 
@@ -496,6 +599,12 @@ offending quantity.
     - `double_riichi` with `tenhou` or `chiihou`;
     - `ippatsu` with `tenhou` or `chiihou`;
     - `tenhou` with `chiihou`.
+- `rule` contains only defined `FuHan::Rule` flags and is a
+  well-formed configuration: for each of the three options (open
+  tanyao, double yakuman, and double-wind pair fu) exactly one of its
+  two mutually exclusive alternatives is set. An under-specified
+  configuration (an option with neither alternative set) or a
+  contradictory one (an option with both set) is rejected.
 
 #### Postconditions
 
@@ -546,6 +655,47 @@ overloaded bitwise operators `|`, `&`, `|=`, and `&=`.
 | `ippatsu`         | Win occurred within one go-around after declaring riichi.           |
 | `tenhou`          | Dealer won on the initial hand.                                     |
 | `chiihou`         | Non-dealer won on the first uninterrupted draw.                     |
+
+### `FuHan::Rules`
+
+A namespace of predefined `FuHan::Rule` configurations matching the
+rule sets adopted by several major mahjong organizations, leagues, and
+services. Each constant is a complete, **well-formed** `Rule` value: it
+selects exactly one alternative for every one of the three options that
+`FuHan::Rule` models, so it can be passed directly as the `rule`
+argument of [`FuHan::calculateFuHan`](#fuhancalculatefuhan) without any
+further combination.
+
+The constants live in their own `FuHan::Rules` namespace both to group
+them and to avoid a name clash with `FuHan::tenhou`, the
+[`FuHan::Context`](#fuhancontext) flag for the tenhou (天和) yaku, which
+is unrelated to the Tenhou (天鳳) online service. The service is
+therefore `FuHan::Rules::tenhou`, whereas the yaku flag remains
+`FuHan::tenhou`.
+
+| Constant                   | Models                | Open tanyao (kuitan) | Double yakuman   | Double-wind pair (連風牌) |
+|----------------------------|-----------------------|----------------------|------------------|---------------------------|
+| `FuHan::Rules::tenhou`       | Tenhou (天鳳)         | enabled              | not recognised   | 4 fu                      |
+| `FuHan::Rules::mahjong_soul` | Mahjong Soul (雀魂)   | enabled              | recognised       | 4 fu                      |
+| `FuHan::Rules::m_league`     | M.League (Mリーグ)    | enabled              | not recognised   | 2 fu                      |
+
+Each constant is defined as the bitwise-OR of one alternative from each
+of the three `FuHan::Rule` option pairs, for example:
+
+```cpp
+inline constexpr FuHan::Rule tenhou
+    = FuHan::kuitan_enabled
+    | FuHan::double_yakuman_disabled
+    | FuHan::double_wind_pair_4fu;
+```
+
+These presets represent only the three options modeled by
+`FuHan::Rule`; any other scoring rule used by the corresponding
+organization that falls outside that scope is **not** captured here. A
+caller that needs a configuration not covered by these presets can
+build its own `FuHan::Rule` value by combining one alternative from
+each option pair with `operator|` (see
+[Error Handling](#error-handling) for the well-formedness requirements).
 
 ### `FuHan::Result`
 
@@ -926,8 +1076,10 @@ of `FuHan::calculateFuHan`, `FuHan::Wind`, `FuHan::Context`, or
 - Only the three winning shapes listed above are recognised. Local
   yaku or alternative winning shapes are out of scope unless
   explicitly added.
-- TODO: List any specific yaku or scoring rules that are
-  intentionally unsupported.
+- The configurable rule variations are limited to the three options
+  listed under [Supported Rule Variants](#supported-rule-variants);
+  other rule variants are enumerated under
+  [Rules not supported](#rules-not-supported).
 
 ## Roadmap
 

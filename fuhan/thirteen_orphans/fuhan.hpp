@@ -45,9 +45,11 @@ namespace FuHan::ThirteenOrphans_{
  * Two variants of Kokushi musou are recognised:
  * - The 13-tile (pair) wait, where the concealed portion already
  *   contains one of each terminal-and-honor tile and the winning
- *   tile completes the pair. This is treated as a double yakuman,
- *   so the returned `Result` has
- *   `yakuman_multiplier == 2`.
+ *   tile completes the pair. This is treated as a double yakuman
+ *   under the `double_yakuman_enabled` rule, so the returned
+ *   `Result` has `yakuman_multiplier == 2`; under
+ *   `double_yakuman_disabled` it is scored as a single yakuman
+ *   (`yakuman_multiplier == 1`).
  * - The single-tile wait, where the concealed portion already
  *   contains a pair of one terminal-and-honor tile plus singletons
  *   of the other twelve, and the winning tile is the missing
@@ -71,10 +73,18 @@ namespace FuHan::ThirteenOrphans_{
  *                       whether the win is the wait-on-pair variant)
  *                       affect the outcome; other flags are
  *                       accepted but do not alter the result.
+ * @param rule           The active rule configuration. For Kokushi
+ *                       musou only the double-yakuman option is
+ *                       relevant: when it selects
+ *                       `double_yakuman_disabled`, the 13-tile (pair)
+ *                       wait is scored as a single yakuman instead of
+ *                       a double yakuman. The remaining options do not
+ *                       affect Kokushi musou scoring.
  * @return A `Result` describing the score of the hand. If the input
  *         forms Kokushi musou, `fu` and `han` are `0` and
  *         `yakuman_multiplier` is `1` (single yakuman) or `2`
- *         (double yakuman, 13-tile wait). If the input does not
+ *         (double yakuman, 13-tile wait under
+ *         `double_yakuman_enabled`). If the input does not
  *         form Kokushi musou, all three fields of the returned
  *         `Result` are `0`, indicating that the hand is not a
  *         winning hand for scoring purposes under this entry point.
@@ -82,7 +92,8 @@ namespace FuHan::ThirteenOrphans_{
 inline FuHan::Result calculateFuHan(
   std::array<std::uint_fast8_t, 34u> const &concealed_hand,
   std::uint_fast8_t const winning_tile,
-  FuHan::Context const context)
+  FuHan::Context const context,
+  FuHan::Rule const rule)
 {
   std::uint_fast8_t total_num_concealed_tiles = 0u;
   for (std::uint_fast8_t const count : concealed_hand) {
@@ -140,7 +151,7 @@ inline FuHan::Result calculateFuHan(
     }
   }
 
-  std::uint_fast8_t yakuman_multiplier = is_thirteen_wait ? 2u : 1u;
+  std::uint_fast8_t yakuman_multiplier = is_thirteen_wait && isDoubleYakumanEnabled(rule) ? 2u : 1u;
   bool const is_tenhou = isTenhou(context);
   bool const is_chiihou = isChiihou(context);
   yakuman_multiplier += is_tenhou || is_chiihou ? 1u : 0u;
