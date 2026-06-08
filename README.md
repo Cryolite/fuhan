@@ -9,10 +9,10 @@
 ![C++ standard](https://img.shields.io/badge/C%2B%2B-23-blue)
 ![Version](https://img.shields.io/badge/version-TODO-lightgrey)
 
-A header-only C++23 library that computes the **fu (符)**, **han (翻)**,
-and **[yakuman multiplier](#yakuman-multiplier)** of a winning hand in
-Riichi Mahjong, the Japanese variant of mahjong, through a single
-public entry-point function: `FuHan::calculateFuHan`.
+A header-only [C++23][cpp23] library that computes the **fu (符)**,
+**han (翻)**, and **[yakuman multiplier](#yakuman-multiplier)** of a
+winning hand in Riichi Mahjong, the Japanese variant of mahjong,
+through a single public entry-point function: `FuHan::calculateFuHan`.
 
 ---
 
@@ -95,8 +95,8 @@ hands without re-implementing the rules from scratch.
 - **Single public entry point.** One function, three small custom
   types. No façade classes, no builders, no factories.
 - **Header-only.** Just add the include path — or link the bundled
-  `fuhan` CMake `INTERFACE` target; there is no compiled library to
-  build.
+  `fuhan` [CMake][cmake] `INTERFACE` target; there is no compiled
+  library to build.
 - **C++23.** Uses modern features.
 - **Multiple winning shapes.** Standard, Chiitoitsu (seven pairs), and
   Kokushi Musou (thirteen orphans) are all considered, and the
@@ -107,7 +107,8 @@ hands without re-implementing the rules from scratch.
   tanyao, double yakuman, and double-wind pair fu). The `FuHan::Rules`
   namespace ships presets matching the rule sets of several major
   leagues, competitive organizations, and online services (e.g.
-  Tenhou, Mahjong Soul, M.League). See
+  [Tenhou][tenhou], [Mahjong Soul][mahjong-soul],
+  [M.League][m-league]). See
   [Supported Rule Variants](#supported-rule-variants).
 - **Strict input validation.** Structural invariants are checked on
   every call and violations are reported with descriptive
@@ -116,8 +117,8 @@ hands without re-implementing the rules from scratch.
   arguments, performs no I/O, and uses no global state.
 - **Extensively validated against real-world data.** The library has
   been verified to produce correct fu, han, and yakuman multiplier on
-  all **126,492,264** winning hands collected from actual Mahjong Soul
-  (雀魂) game records.
+  all **126,492,264** winning hands collected from actual
+  [Mahjong Soul][mahjong-soul] (雀魂) game records.
 
 ## Non-goals
 
@@ -185,9 +186,9 @@ as the `rule` argument:
 
 | Preset                       | Rule set            |
 |------------------------------|---------------------|
-| `FuHan::Rules::tenhou`       | Tenhou (天鳳)        |
-| `FuHan::Rules::mahjong_soul` | Mahjong Soul (雀魂)  |
-| `FuHan::Rules::m_league`     | M.League (Mリーグ)   |
+| `FuHan::Rules::tenhou`       | [Tenhou][tenhou] (天鳳)              |
+| `FuHan::Rules::mahjong_soul` | [Mahjong Soul][mahjong-soul] (雀魂)  |
+| `FuHan::Rules::m_league`     | [M.League][m-league] (Mリーグ)       |
 
 See [`FuHan::Rules`](#fuhanrules) for the exact per-option values of
 each preset.
@@ -224,16 +225,18 @@ modeled and are out of scope:
 
 ## Requirements
 
-- A C++23 compiler.
-- CMake **3.25** or newer (for the bundled build and the header
+- A [C++23][cpp23] compiler.
+- [CMake][cmake] **3.25** or newer (for the bundled build and the header
   `install` rule).
-- To build and run the bundled tests: a Python 3 interpreter, Python 3
-  development files, and the matching Boost.Python library.
+- To build and run the bundled tests: a [Python 3][python3]
+  interpreter, Python 3 development files, and the matching
+  [Boost.Python][boost-python] library.
 - To run `test/chiniisou`: the Python 3 interpreter selected by CMake
-  must be able to import the `mahjong` package.
-- To run the scoring-corpus test driver: POSIX shell, `bzip2`, `gzip`,
-  and `xz`.
-- TODO: Confirm minimum supported versions of GCC, Clang, and MSVC.
+  must be able to import the [`mahjong`][python-mahjong] package.
+- To run the scoring-corpus test driver: [POSIX shell][posix-shell],
+  [`bzip2`][bzip2], [`gzip`][gzip], and [`xz`][xz].
+- TODO: Confirm minimum supported versions of [GCC][gcc],
+  [Clang][clang], and [MSVC][msvc].
 
 ## Installation
 
@@ -247,7 +250,7 @@ available on your include path and include the top-level header:
 #include <fuhan/fuhan.hpp>
 ```
 
-**2. Install the headers via CMake.** The bundled CMake project
+**2. Install the headers via [CMake][cmake].** The bundled CMake project
 defines an `install` target — an `INTERFACE` library named `fuhan`
 whose public headers are attached as a header `FILE_SET` — that
 copies those headers into the include directory of your chosen
@@ -271,8 +274,9 @@ top-level header remains `#include <fuhan/fuhan.hpp>` once
 ## Building from Source
 
 Although the library itself is header-only, the repository ships a
-CMake project for building the header target, installing the headers,
-and, when explicitly enabled, building and running the test suite.
+[CMake][cmake] project for building the header target, installing the
+headers, and, when explicitly enabled, building and running the test
+suite.
 
 ```bash
 git clone https://github.com/Cryolite/fuhan.git
@@ -281,16 +285,16 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-Useful CMake options (see [`CMakeLists.txt`](CMakeLists.txt)):
+Useful [CMake][cmake] options (see [`CMakeLists.txt`](CMakeLists.txt)):
 
 | Option                | Default     | Effect                                              |
 |-----------------------|-------------|-----------------------------------------------------|
 | `CMAKE_BUILD_TYPE`    | `Release`   | Standard CMake build type.                          |
 | `FUHAN_BUILD_TESTING` | Off         | Builds and registers the bundled tests.             |
 | `FUHAN_WITH_COVERAGE` | Off         | Enables `-coverage` flags (GCC/Clang).              |
-| `FUHAN_WITH_ASAN`     | On in Debug | Enables AddressSanitizer (GCC/Clang).               |
-| `FUHAN_WITH_UBSAN`    | On in Debug | Enables UndefinedBehaviorSanitizer (GCC/Clang).    |
-| `FUHAN_WITH_TSAN`     | Off         | Enables ThreadSanitizer (GCC/Clang).                |
+| `FUHAN_WITH_ASAN`     | On in Debug | Enables [AddressSanitizer][asan] (GCC/Clang).       |
+| `FUHAN_WITH_UBSAN`    | On in Debug | Enables [UndefinedBehaviorSanitizer][ubsan] (GCC/Clang). |
+| `FUHAN_WITH_TSAN`     | Off         | Enables [ThreadSanitizer][tsan] (GCC/Clang).        |
 
 In `Release` builds, interprocedural optimization is enabled. In
 `Debug` builds on GCC/Clang, `_GLIBCXX_DEBUG` and
@@ -300,7 +304,7 @@ default.
 ## Running Tests
 
 Configure with `FUHAN_BUILD_TESTING=ON`, build the test targets, and
-then run all registered tests with CTest:
+then run all registered tests with [CTest][ctest]:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DFUHAN_BUILD_TESTING=ON
@@ -316,9 +320,10 @@ The `test/chiniisou/` directory builds the `test-chiniisou`
 executable and registers it with CTest as `test-chiniisou`.
 
 This test enumerates closed single-suit hands and compares FuHan
-results with the Python `mahjong` hand calculator. CTest runs it with
-the Python 3 interpreter discovered by CMake, and that interpreter
-environment must have the `mahjong` package installed. It does not
+results with the Python [`mahjong`][python-mahjong] hand calculator.
+CTest runs it with the Python 3 interpreter discovered by
+[CMake][cmake]. That interpreter environment must have the
+`mahjong` package installed. It does not
 require any external corpus files beyond the normal build and runtime
 dependencies.
 
@@ -332,7 +337,8 @@ The repository does **not** itself ship any Mahjong Soul-derived
 scoring corpus. The test driver
 [`test/majsoul-scoring-corpus/test-runner.sh`](test/majsoul-scoring-corpus/test-runner.sh)
 instead assumes that one or more corpus files collected from
-Mahjong Soul (雀魂) have been placed under the `test/majsoul-scoring-corpus/` directory,
+[Mahjong Soul][mahjong-soul] (雀魂) have been placed under the
+`test/majsoul-scoring-corpus/` directory,
 matching any of the following name patterns:
 
 - `test/majsoul-scoring-corpus/*.tsv`
@@ -669,15 +675,15 @@ further combination.
 The constants live in their own `FuHan::Rules` namespace both to group
 them and to avoid a name clash with `FuHan::tenhou`, the
 [`FuHan::Context`](#fuhancontext) flag for the tenhou (天和) yaku, which
-is unrelated to the Tenhou (天鳳) online service. The service is
-therefore `FuHan::Rules::tenhou`, whereas the yaku flag remains
+is unrelated to the [Tenhou][tenhou] (天鳳) online service. The service
+is therefore `FuHan::Rules::tenhou`, whereas the yaku flag remains
 `FuHan::tenhou`.
 
 | Constant                   | Models                | Open tanyao (kuitan) | Double yakuman   | Double-wind pair (連風牌) |
 |----------------------------|-----------------------|----------------------|------------------|---------------------------|
-| `FuHan::Rules::tenhou`       | Tenhou (天鳳)         | enabled              | not recognised   | 4 fu                      |
-| `FuHan::Rules::mahjong_soul` | Mahjong Soul (雀魂)   | enabled              | recognised       | 4 fu                      |
-| `FuHan::Rules::m_league`     | M.League (Mリーグ)    | enabled              | not recognised   | 2 fu                      |
+| `FuHan::Rules::tenhou`       | [Tenhou][tenhou] (天鳳)              | enabled              | not recognised   | 4 fu                      |
+| `FuHan::Rules::mahjong_soul` | [Mahjong Soul][mahjong-soul] (雀魂)  | enabled              | recognised       | 4 fu                      |
+| `FuHan::Rules::m_league`     | [M.League][m-league] (Mリーグ)       | enabled              | not recognised   | 2 fu                      |
 
 Each constant is defined as the bitwise-OR of one alternative from each
 of the three `FuHan::Rule` option pairs, for example:
@@ -967,14 +973,15 @@ value by copy. As a result:
 ## Integration Guide
 
 Because the library is header-only, the simplest integration is to
-copy or `git submodule add` this repository under your project and
-add its root to your include path.
+copy this repository, or add it with
+[`git submodule add`][git-submodule], under your project and add its
+root to your include path.
 
 ```cpp
 #include <fuhan/fuhan.hpp>
 ```
 
-If your project uses CMake, prefer linking the bundled `fuhan`
+If your project uses [CMake][cmake], prefer linking the bundled `fuhan`
 `INTERFACE` target rather than managing include paths by hand (see
 [CMake Usage Example](#cmake-usage-example)); the project also
 provides an `install()` rule for installing the headers to a prefix
@@ -1024,10 +1031,11 @@ still be requested for `my_target`, as shown above.
 
 ### Development setup
 
-Install a C++23-capable toolchain (GCC or Clang), CMake 3.25 or
-newer, and the POSIX shell utilities listed in
-[Requirements](#requirements). With those in place, build and test
-the project using the commands in
+Install a [C++23][cpp23]-capable toolchain ([GCC][gcc] or
+[Clang][clang]), [CMake][cmake] 3.25 or newer, and the
+[POSIX shell][posix-shell] utilities listed in
+[Requirements](#requirements). With those in place, build and test the
+project using the commands in
 [Building from Source](#building-from-source) and
 [Running Tests](#running-tests).
 
@@ -1036,35 +1044,40 @@ the project using the commands in
 
 ### Code formatting / linting / testing policy
 
-- The project builds with `-Werror` on GCC and Clang; new code must
-  not introduce warnings.
+- The project builds with `-Werror` on [GCC][gcc] and
+  [Clang][clang]; new code must not introduce warnings.
 - Debug builds enable `_GLIBCXX_DEBUG`, `_GLIBCXX_DEBUG_PEDANTIC`,
-  AddressSanitizer, and UndefinedBehaviorSanitizer by default. Run
-  the test suite at least once in a Debug build before submitting a
-  change.
+  [AddressSanitizer][asan], and [UndefinedBehaviorSanitizer][ubsan]
+  by default. Run the test suite at least once in a Debug build before
+  submitting a change.
 - The Mahjong Soul scoring corpus (`test/majsoul-scoring-corpus/*.tsv*`)
   must pass after any change to the public behaviour.
-- TODO: Document the formatting tool of record (e.g. `clang-format`)
-  and add a configuration file if one is intended.
-- TODO: Document the linting tool of record (e.g. `clang-tidy`).
+- TODO: Document the formatting tool of record (e.g.
+  [`clang-format`][clang-format]) and add a configuration file if one
+  is intended.
+- TODO: Document the linting tool of record (e.g.
+  [`clang-tidy`][clang-tidy]).
 
 ### Commit messages
 
-- This repository uses Conventional Commits for commit messages.
+- This repository uses [Conventional Commits][conventional-commits]
+  for commit messages.
 - Keep every commit-message line at or below 72 characters, including
-  the subject, body, and any Git trailers.
+  the subject, body, and any [Git trailers][git-trailers].
 
 ## Versioning Policy
 
-TODO: Adopt and document an explicit policy. Semantic Versioning
-(`MAJOR.MINOR.PATCH`) is recommended for a library with a single
-public function: any change to the signature or observable behaviour
-of `FuHan::calculateFuHan`, `FuHan::Wind`, `FuHan::Context`, or
-`FuHan::Result` would constitute a breaking change.
+TODO: Adopt and document an explicit policy.
+[Semantic Versioning][semver] (`MAJOR.MINOR.PATCH`) is recommended for
+a library with a single public function: any change to the signature or
+observable behaviour of `FuHan::calculateFuHan`, `FuHan::Wind`,
+`FuHan::Context`, or `FuHan::Result` would constitute a breaking
+change.
 
 ## Compatibility Policy
 
-- **Language standard:** C++23. Older standards are not supported.
+- **Language standard:** [C++23][cpp23]. Older standards are not
+  supported.
 - **API stability:** TODO. Define when (if ever) the signature of
   `calculateFuHan` may change, and how deprecations will be
   signalled.
@@ -1107,11 +1120,41 @@ of `FuHan::calculateFuHan`, `FuHan::Wind`, `FuHan::Context`, or
 
 ## License
 
-This project is licensed under the **MIT License**. See
+This project is licensed under the **[MIT License][mit-license]**. See
 [`LICENSE`](LICENSE) for the full text.
+
+The [SPDX license identifier][spdx-license-id] is:
 
 ```
 SPDX-License-Identifier: MIT
 ```
 
 ## Acknowledgements
+
+[asan]: https://clang.llvm.org/docs/AddressSanitizer.html
+[boost-python]: https://www.boost.org/doc/libs/release/libs/python/
+[bzip2]: https://sourceware.org/bzip2/
+[clang]: https://clang.llvm.org/
+[clang-format]: https://clang.llvm.org/docs/ClangFormat.html
+[clang-tidy]: https://clang.llvm.org/extra/clang-tidy/
+[cmake]: https://cmake.org/cmake/help/latest/
+[conventional-commits]: https://www.conventionalcommits.org/en/v1.0.0/
+[cpp23]: https://isocpp.org/std/the-standard
+[ctest]: https://cmake.org/cmake/help/latest/manual/ctest.1.html
+[gcc]: https://gcc.gnu.org/
+[git-submodule]: https://git-scm.com/docs/git-submodule
+[git-trailers]: https://git-scm.com/docs/git-interpret-trailers
+[gzip]: https://www.gnu.org/software/gzip/
+[mahjong-soul]: https://mahjongsoul.com/
+[mit-license]: https://spdx.org/licenses/MIT.html
+[m-league]: https://m-league.jp/
+[msvc]: https://learn.microsoft.com/cpp/build/reference/compiler-options
+[posix-shell]: https://pubs.opengroup.org/onlinepubs/9799919799/
+[python-mahjong]: https://pypi.org/project/mahjong/
+[python3]: https://docs.python.org/3/
+[semver]: https://semver.org/
+[spdx-license-id]: https://spdx.dev/ids/
+[tenhou]: https://tenhou.net/
+[tsan]: https://clang.llvm.org/docs/ThreadSanitizer.html
+[ubsan]: https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+[xz]: https://tukaani.org/xz/
