@@ -1048,6 +1048,12 @@ the project using the commands in
   and add a configuration file if one is intended.
 - TODO: Document the linting tool of record (e.g. `clang-tidy`).
 
+### Commit messages
+
+- This repository uses Conventional Commits for commit messages.
+- Keep every commit-message line at or below 72 characters, including
+  the subject, body, and any Git trailers.
+
 ## Versioning Policy
 
 TODO: Adopt and document an explicit policy. Semantic Versioning
