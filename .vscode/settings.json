@@ -8,16 +8,16 @@
     "C_Cpp.default.cppStandard": "c++23",
     "C_Cpp.default.includePath": [
         "/usr/include/python3.14",
-        "/home/vscode/.local/include",
-        "/workspaces/fuhan"
+        "${userHome}/.local/include",
+        "${workspaceFolder}"
     ],
     "cmake.environment": {
-        "LD_LIBRARY_PATH": "/home/vscode/.local/lib64:/home/vscode/.local/lib"
+        "LD_LIBRARY_PATH": "${userHome}/.local/lib64:${userHome}/.local/lib"
     },
     "cmake.configureArgs": [
         "-DFUHAN_BUILD_TESTING=ON"
     ],
     "cmake.configureEnvironment": {
-        "VIRTUAL_ENV": "/workspaces/fuhan/.venv"
+        "VIRTUAL_ENV": "${workspaceFolder}/.venv"
     }
 }
