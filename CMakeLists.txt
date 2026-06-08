@@ -3,11 +3,10 @@
 # This file is part of https://github.com/Cryolite/fuhan
 
 cmake_minimum_required(VERSION 3.25.0)
-project(FuHan)
+project(FuHan VERSION 0.1.0 LANGUAGES CXX)
 
 option(FUHAN_BUILD_TESTING "Build FuHan tests" OFF)
 
-message("CMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
 message("CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
 
 set(CMAKE_CXX_STANDARD 23)
